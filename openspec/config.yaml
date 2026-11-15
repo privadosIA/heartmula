@@ -1,0 +1,36 @@
+schema: spec-driven
+context: |
+  Project: HeartMuLa.Net, a C# port (.NET 8 + TorchSharp) of https://github.com/HeartMuLa/heartlib
+  (music generation: Llama-3.2-3B LLM + 8-codebook RVQ decoder + HeartCodec codec).
+
+  Hard rules:
+  - No Python at runtime. Python only in tools/, to generate reference fixtures (golden run), once.
+  - The names of C# modules/fields replicate the keys of the safetensors checkpoint
+    (backbone.layers.N.attn.q_proj.weight, sa_norm.scale, ...) so that load_state_dict fits without mappings.
+  - The architecture reference is torchtune (NOT HuggingFace): RoPE over adjacent pairs with Llama3 scaling
+    (scale_factor=32), RMSNorm in float32 with a `scale` parameter, bool mask true=attend.
+  - Every change that touches the model ends in a parity test against fixtures in tests/fixtures/
+    (cos_sim >= 0.999 and a reasonable max_abs in bf16; 1e-4 in fp32). Without parity it is not archived.
+  - dtype: bf16 for HeartMuLa, fp32 for HeartCodec (like the original; bf16 degrades the audio).
+  - Checkpoints (6-7 GB) NEVER in the repo; tests that need them are marked [RequiresCheckpoint] and read HEARTMULA_CKPT.
+  - Tests: xUnit. Build: dotnet build -p:TorchBackend=cpu|cuda-windows|cuda-linux.
+  - Model-agnostic code lives in the sibling repository musicgen-core (a folder next to this one), referenced through MusicGenCoreDir (default ../musicgen-core;
+    vendored in third_party/musicgen-core in the public snapshot). Namespaces: MusicGen.Core.Weights (SafeTensors, CheckpointIndex,
+    SafeTensorsWriter, StrictLoader, WeightNorm), .Layers (RmsNorm, FlowRmsNorm, RotaryEmbedding, FlowAttention, FlowMlp, Conv1dLayer,
+    ConvTranspose1dLayer, PReLULayer), .Audio (WavWriter, WindowAssembler), .Text (PythonText), MusicGen.Core (Seeding),
+    MusicGen.Core.Testing (Parity, FixtureDirectory, CheckpointEnvironment, Requires*FactAttribute, Bf16, Rng, WavFile).
+    Changes to those types are made in the core repository; both repositories must carry the same TorchSharpVersion.
+  - Three flavors that look alike and are NOT interchangeable: RmsNorm (torchtune: `scale`, float32 round trip) vs FlowRmsNorm
+    (HeartCodec: `weight`, input dtype) vs HuggingFace LlamaRMSNorm (`weight`, float32; not in the core yet); RotaryEmbedding has no default
+    layout: AdjacentPairs (torchtune, used here) vs HalfRotation (HuggingFace rotate_half), Plain vs Llama3Scaled frequencies,
+    Float32Cached (HeartMuLa) vs InputDtypePerCall (HeartCodec flow) table.
+  - TorchSharp's torch.manual_seed seeds ONLY the CPU generator: seed with Seeding.Apply (it also seeds CUDA). Without it, 126 of 128 tokens
+    differed between two same-seed generations on CUDA. Other findings: the core's docs/torchsharp-findings.md.
+rules:
+  proposal:
+    - State the numerical parity criterion explicitly, or "not applicable (no change in behavior)".
+  design:
+    - If the change touches attention/RoPE/norm, list the torchtune vs HuggingFace differences that are respected.
+    - List which reference fixture is used and how it was generated.
+  tasks:
+    - The last task of every change with model code is to run the parity test and paste the result.

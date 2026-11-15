@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+.DS_Store
+ckpt/
+*.wav
+*.mp3
+# Checkpoints and dumps stay out of the repo. C1 decides whether the small fixtures in tests/fixtures are versioned.
+*.safetensors
+!tests/fixtures/*.safetensors
+tests/_listen/
+reference/
+
+# Python caches
+__pycache__/
+*.pyc

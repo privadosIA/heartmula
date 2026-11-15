@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>HeartMuLa.Server</RootNamespace>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <!-- Allows running on machines that only have a newer runtime (e.g. .NET 10). -->
+    <RollForward>Major</RollForward>
+    <!-- The XML comments of the request/response records become the descriptions in the OpenAPI document. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HeartMuLa.Net\HeartMuLa.Net.csproj" />
+  </ItemGroup>
+
+</Project>
