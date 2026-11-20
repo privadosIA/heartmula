@@ -13,7 +13,7 @@ public sealed class ControlledReader : TextReader
 {
     private readonly BlockingCollection<string?> lines = new();
     public void Send(string line) => lines.Add(line);
-    public void Close() => lines.Add(null);
+    public new void Close() => lines.Add(null);
     public override string? ReadLine() => lines.Take();
 }
 

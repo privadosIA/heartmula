@@ -13,6 +13,7 @@ public interface IGpuProbe
     int DeviceCount();
 }
 
+/// <summary>Probe that reads the GPUs by running <c>nvidia-smi</c>; the answer is cached for five seconds.</summary>
 public sealed class NvidiaSmiGpuProbe : IGpuProbe
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(5);
@@ -20,6 +21,7 @@ public sealed class NvidiaSmiGpuProbe : IGpuProbe
     private DateTime readAt = DateTime.MinValue;
     private List<GpuInfo> cache = new();
 
+    /// <inheritdoc/>
     public GpuInfo? Read(string device)
     {
         if (!device.StartsWith("cuda", StringComparison.OrdinalIgnoreCase)) return null;
@@ -32,6 +34,7 @@ public sealed class NvidiaSmiGpuProbe : IGpuProbe
         }
     }
 
+    /// <inheritdoc/>
     public int DeviceCount()
     {
         lock (gate)
@@ -54,11 +57,26 @@ public sealed class NvidiaSmiGpuProbe : IGpuProbe
         return list;
     }
 
+    /// <summary>nvidia-smi at a fixed install location (not looked up through PATH, so a planted binary cannot be picked up); null when it is not there.</summary>
+    private static string? FindNvidiaSmi()
+    {
+        var candidates = OperatingSystem.IsWindows()
+            ? new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "nvidia-smi.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "NVIDIA Corporation", "NVSMI", "nvidia-smi.exe"),
+            }
+            : new[] { "/usr/bin/nvidia-smi", "/usr/local/bin/nvidia-smi", "/bin/nvidia-smi" };
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
     private static List<GpuInfo> Query()
     {
         try
         {
-            var psi = new ProcessStartInfo("nvidia-smi", "--query-gpu=name,memory.free,memory.total --format=csv,noheader,nounits")
+            var smi = FindNvidiaSmi();
+            if (smi is null) return new();
+            var psi = new ProcessStartInfo(smi, "--query-gpu=name,memory.free,memory.total --format=csv,noheader,nounits")
             { RedirectStandardOutput = true, RedirectStandardError = true };
             using var p = Process.Start(psi);
             if (p is null) return new();
@@ -70,8 +88,11 @@ public sealed class NvidiaSmiGpuProbe : IGpuProbe
     }
 }
 
+/// <summary>Probe for machines without a GPU: it reads nothing and reports no devices.</summary>
 public sealed class NoGpuProbe : IGpuProbe
 {
+    /// <inheritdoc/>
     public GpuInfo? Read(string device) => null;
+    /// <inheritdoc/>
     public int DeviceCount() => 0;
 }

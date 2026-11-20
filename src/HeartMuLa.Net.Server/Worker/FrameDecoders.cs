@@ -18,6 +18,9 @@ public sealed class WorkerFrameDecoder : IFrameDecoder
     private readonly WorkerSettings settings;
     private readonly WorkerCommand command;
 
+    /// <summary>Creates a decoder that runs the codec in a worker process.</summary>
+    /// <param name="settings">The resolved settings sent to the worker.</param>
+    /// <param name="command">How to start the worker; null starts this executable (<see cref="WorkerRunner.CurrentExecutable"/>).</param>
     public WorkerFrameDecoder(WorkerSettings settings, WorkerCommand? command = null)
     {
         this.settings = settings;
@@ -28,6 +31,7 @@ public sealed class WorkerFrameDecoder : IFrameDecoder
     public static string FramesPath(string wavPath) =>
         (wavPath.EndsWith(".wav.tmp", StringComparison.Ordinal) ? wavPath[..^".wav.tmp".Length] : wavPath) + ".frames.tmp";
 
+    /// <inheritdoc/>
     public int Decode(Tensor framesCpu, SongRequest request, string wavPath, Action<JobStage, int, int> progress, CancellationToken ct)
     {
         var framesPath = FramesPath(wavPath);

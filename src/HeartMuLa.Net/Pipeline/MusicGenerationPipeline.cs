@@ -10,6 +10,7 @@ namespace HeartMuLa.Pipeline;
 /// <summary>gen_config.json at the root of the ckpt.</summary>
 public sealed record GenConfig(long TextBosId = 128000, long TextEosId = 128001, long AudioEosId = 8193, long EmptyId = 0)
 {
+    /// <summary>Reads the ids from the <c>gen_config.json</c> at <paramref name="path"/>; missing keys keep their defaults.</summary>
     public static GenConfig FromFile(string path)
     {
         var j = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
@@ -18,6 +19,12 @@ public sealed record GenConfig(long TextBosId = 128000, long TextEosId = 128001,
     }
 }
 
+/// <summary>Prompt of one generation; the batch <c>B</c> is 2 (conditional and unconditional rows) when classifier-free guidance is used, otherwise 1.</summary>
+/// <param name="Tokens"><c>[B, S, K+1]</c> int64 tokens; the last column holds the text ids and the others are audio codebooks.</param>
+/// <param name="TokensMask"><c>[B, S, K+1]</c> bool, true where the token is used.</param>
+/// <param name="MuqEmbed"><c>[B, muq_dim]</c> MuQ embedding (a zero vector, as reference audio is not supported).</param>
+/// <param name="MuqIdx">Prompt position, per batch row, where the MuQ embedding is injected.</param>
+/// <param name="Pos"><c>[B, S]</c> int64 position of each prompt token.</param>
 public sealed record PromptInputs(Tensor Tokens, Tensor TokensMask, Tensor MuqEmbed, int[] MuqIdx, Tensor Pos);
 
 /// <summary>
@@ -32,12 +39,15 @@ public sealed class MusicGenerationPipeline
     private readonly Device device;
     private readonly ScalarType dtype;
 
+    /// <summary>Default sampling temperature.</summary>
     public const double DefaultTemperature = 1.0;
+    /// <summary>Default number of candidates kept by the top-k filter.</summary>
     public const int DefaultTopK = 50;
 
     private int ParallelNumber => mula.Config.AudioNumCodebooks + 1; // codebooks + 1 text column
     private int MuqDim => mula.Config.MuqDim;
 
+    /// <summary>Creates the pipeline over a loaded <paramref name="mula"/> model; <paramref name="dtype"/> is the element type of the MuQ embedding that <see cref="Preprocess"/> builds.</summary>
     public MusicGenerationPipeline(HeartMuLaModel mula, ITextTokenizer tokenizer, GenConfig cfg, Device device, ScalarType dtype)
     {
         this.mula = mula;
@@ -55,6 +65,13 @@ public sealed class MusicGenerationPipeline
         return ids;
     }
 
+    /// <summary>
+    /// CFG is off only for exactly 1.0, as in heartlib's <c>cfg_scale != 1.0</c>: an exact sentinel the caller types, not a computed value, so no tolerance.
+    /// <c>CompareTo</c> keeps that exact meaning (a scale below 1 still doubles the batch, as in Python) without a floating point equality test.
+    /// </summary>
+    private static bool UsesCfg(double cfgScale) => cfgScale.CompareTo(1.0) != 0;
+
+    /// <summary>Builds the prompt from the style <paramref name="tags"/> and the <paramref name="lyrics"/>; the batch is duplicated for classifier-free guidance unless <paramref name="cfgScale"/> is exactly 1.</summary>
     public PromptInputs Preprocess(string tags, string lyrics, double cfgScale)
     {
         // Like heartlib: Python's str.lower() (not ToLowerInvariant) and ordinal startswith/endswith (StartsWith(string) depends on the
@@ -78,11 +95,11 @@ public sealed class MusicGenerationPipeline
         var tokensMask = torch.zeros_like(tokens, dtype: ScalarType.Bool);
         tokensMask[.., -1] = torch.tensor(true);
 
-        int bs = cfgScale != 1.0 ? 2 : 1;
+        int bs = UsesCfg(cfgScale) ? 2 : 1;
         Tensor CfgCat(Tensor t)
         {
             t = t.unsqueeze(0);
-            return cfgScale != 1.0 ? torch.cat(new[] { t, t }, 0) : t;
+            return UsesCfg(cfgScale) ? torch.cat(new[] { t, t }, 0) : t;
         }
 
         return new PromptInputs(
@@ -104,7 +121,7 @@ public sealed class MusicGenerationPipeline
         var muq = inp.MuqEmbed.to(device);
         var promptPos = inp.Pos.to(device);
 
-        int bs = cfgScale != 1.0 ? 2 : 1;
+        int bs = UsesCfg(cfgScale) ? 2 : 1;
         mula.SetupCaches(bs);
 
         var frames = new List<Tensor>();

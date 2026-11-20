@@ -15,12 +15,15 @@ public sealed record VocoderLoadReport(int TensorsRead, int PairsFolded, int Ign
 /// </summary>
 public static class CodecWeights
 {
+    /// <summary>Checkpoint key prefix of the vocoder decoder's tensors.</summary>
     public const string DecoderPrefix = "scalar_model.decoder.";
     private const string StripPrefix = "scalar_model.";
 
+    /// <summary>Loads the decoder weights from the HeartCodec checkpoint in <paramref name="codecDir"/> into <paramref name="model"/> on <paramref name="device"/>, throwing if the keys or shapes do not match.</summary>
     public static VocoderLoadReport LoadVocoder(ScalarVocoder model, string codecDir, Device device) =>
         LoadVocoder(model, CheckpointIndex.Open(codecDir), device);
 
+    /// <summary>Loads the decoder weights from an already opened checkpoint index into <paramref name="model"/> on <paramref name="device"/>, throwing if the keys or shapes do not match.</summary>
     public static VocoderLoadReport LoadVocoder(ScalarVocoder model, CheckpointIndex checkpoint, Device device)
     {
         var r = StrictLoader.Load(model, checkpoint, device, new StrictLoadOptions("The HeartCodec checkpoint does not match the vocoder:")

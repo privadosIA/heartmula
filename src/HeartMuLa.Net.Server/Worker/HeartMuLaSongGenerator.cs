@@ -20,7 +20,11 @@ public sealed class HeartMuLaSongGenerator : ISongGenerator, IDisposable
     private volatile ModelStatus status = ModelStatus.Loading;
     private volatile string? loadError;
 
+    /// <summary>Creates the generator; the model is not read until <see cref="Load"/> is called.</summary>
+    /// <param name="options">The service settings.</param>
+    /// <param name="log">Logger for the loading messages.</param>
     /// <param name="decoder">Where the frames are decoded; null decodes in this process (<c>inprocess</c> isolation), a <see cref="WorkerFrameDecoder"/> in a worker (<c>codec</c>).</param>
+    /// <param name="steps">The model-touching steps; null uses a <see cref="SongPipeline"/> for the resolved settings (tests pass a stand-in).</param>
     public HeartMuLaSongGenerator(ServiceOptions options, ILogger<HeartMuLaSongGenerator> log, IFrameDecoder? decoder = null, IWorkerSteps? steps = null)
     {
         this.decoder = decoder;
@@ -45,12 +49,16 @@ public sealed class HeartMuLaSongGenerator : ISongGenerator, IDisposable
     /// <summary>True in <c>codec</c> isolation: the frames are decoded by a worker process instead of here.</summary>
     public bool DecodesInWorker => decoder is not null;
 
+    /// <inheritdoc/>
     public ModelStatus Status => status;
+    /// <inheritdoc/>
     public string? LoadError => loadError;
+    /// <inheritdoc/>
     public DeviceInfo Devices => new(modelDevice.ToString(), codecDevice.ToString());
 
     private static readonly string[] RequiredEntries = { "gen_config.json", "tokenizer.json", "HeartCodec-oss" };
 
+    /// <inheritdoc/>
     public IReadOnlyList<string> Missing
     {
         get
@@ -67,6 +75,7 @@ public sealed class HeartMuLaSongGenerator : ISongGenerator, IDisposable
         return options.Validate(cudaCount);
     }
 
+    /// <inheritdoc/>
     public void Load()
     {
         try
@@ -84,6 +93,7 @@ public sealed class HeartMuLaSongGenerator : ISongGenerator, IDisposable
         }
     }
 
+    /// <inheritdoc/>
     public GeneratedSong Generate(SongRequest request, string wavPath, Action<JobStage, int, int> progress, CancellationToken ct)
     {
         using var frames = steps.GenerateFrames(request, progress);
@@ -92,5 +102,6 @@ public sealed class HeartMuLaSongGenerator : ISongGenerator, IDisposable
         return new GeneratedSong(!inWorker ? steps.DecodeFrames(frames, wavPath, progress) : decoder!.Decode(frames, request, wavPath, progress, ct));
     }
 
+    /// <summary>Releases the model and the tokenizer.</summary>
     public void Dispose() => steps.Dispose();
 }

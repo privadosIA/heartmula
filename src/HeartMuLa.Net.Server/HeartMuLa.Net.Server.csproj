@@ -9,9 +9,8 @@
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <!-- Allows running on machines that only have a newer runtime (e.g. .NET 10). -->
     <RollForward>Major</RollForward>
-    <!-- The XML comments of the request/response records become the descriptions in the OpenAPI document. -->
+    <!-- The XML comments of the request/response records become the descriptions in the OpenAPI document, and feed the DocFX API reference (docs/). -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

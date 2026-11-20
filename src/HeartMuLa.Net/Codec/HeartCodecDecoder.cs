@@ -6,7 +6,11 @@ namespace HeartMuLa.Codec;
 /// <summary>Codes to audio for one segment: flow matching (codes → latents), the stereo reordering and the vocoder.</summary>
 public static class HeartCodecDecoder
 {
+    /// <param name="flow">Flow-matching model that turns the codes into latents</param>
+    /// <param name="vocoder">Vocoder that turns the latents into audio</param>
     /// <param name="codes"><c>[1, 8, T]</c> int64 (T ≤ 372 frames of 12.5 Hz)</param>
+    /// <param name="guidanceScale">Classifier-free guidance scale of the flow matching</param>
+    /// <param name="numSteps">Number of Euler steps of the flow matching</param>
     /// <param name="noise"><c>[1, 2T, 256]</c>; <c>torch.randn</c> when null</param>
     /// <returns><c>[2, 2T · 1920]</c> samples at 48 kHz (not trimmed)</returns>
     public static Tensor DecodeSegment(FlowMatching flow, ScalarVocoder vocoder, Tensor codes, double guidanceScale = 1.25, int numSteps = 10, Tensor? noise = null)
@@ -25,8 +29,14 @@ public static class HeartCodecDecoder
     /// Codes of any length → stereo audio <c>[2, TargetSamples]</c> (CPU, float32), as heartlib's <c>detokenize</c>: overlapping windows, in-context latents
     /// from the tail of the previous window, linear cross-fade and trim. cuDNN TF32 is off during the call unless <paramref name="allowCudnnTf32"/>.
     /// </summary>
+    /// <param name="flow">Flow-matching model that turns the codes into latents</param>
+    /// <param name="vocoder">Vocoder that turns the latents into audio</param>
     /// <param name="codes"><c>[1, 8, N]</c> int64</param>
+    /// <param name="guidanceScale">Classifier-free guidance scale of the flow matching</param>
+    /// <param name="numSteps">Number of Euler steps of the flow matching</param>
     /// <param name="noise">noise of each window; default <c>randn</c> on the codes' device, in the order the reference draws it (per window: padding, then flow)</param>
+    /// <param name="allowCudnnTf32">Whether cuDNN may use TF32 during the call</param>
+    /// <param name="onWindow">Called as <c>(window index, window count)</c> before each window is decoded</param>
     public static Tensor Decode(FlowMatching flow, ScalarVocoder vocoder, Tensor codes, double guidanceScale = 1.25, int numSteps = 10,
         Func<int, WindowNoise>? noise = null, bool allowCudnnTf32 = false, Action<int, int>? onWindow = null)
     {

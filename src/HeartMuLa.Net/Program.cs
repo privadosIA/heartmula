@@ -1,5 +1,6 @@
 using MusicGen.Core;
 using MusicGen.Core.Text;
+using HeartMuLa.Cli;
 using HeartMuLa.Model;
 using HeartMuLa.Pipeline;
 using MusicGen.Core.Weights;
@@ -182,28 +183,4 @@ static void Generate(Args a)
     var samples = AudioStage.DecodeToWav(framesCpu, ckpt, codecDevice, audio, Console.WriteLine,
         (w, n) => Console.WriteLine($"  codec window {w + 1}/{n}"));
     Console.WriteLine($"wav written to {audio.WavPath} ({samples} samples, {samples / 48000.0:F2} s, {audio.Format})");
-}
-
-/// <summary>Minimal argument parser: --k v and positionals.</summary>
-sealed class Args
-{
-    public List<string> Positional { get; } = new();
-    private readonly Dictionary<string, string> named = new();
-    public string? Get(string k) => named.TryGetValue(k, out var v) ? v : null;
-
-    public static Args Parse(string[] argv)
-    {
-        var a = new Args();
-        for (int i = 0; i < argv.Length; i++)
-        {
-            if (argv[i].StartsWith("--"))
-            {
-                var key = argv[i][2..];
-                var val = i + 1 < argv.Length && !argv[i + 1].StartsWith("--") ? argv[++i] : "true";
-                a.named[key] = val;
-            }
-            else a.Positional.Add(argv[i]);
-        }
-        return a;
-    }
 }

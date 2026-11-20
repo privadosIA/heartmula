@@ -14,7 +14,7 @@
 # What a snapshot is:
 #   1. `git archive <source>` extracted over a clean checkout of `public` (an orphan branch is created the first time), plus the core under
 #      `third_party/musicgen-core` (see above). Every check below runs over both.
-#   2. Sanitizing: editor settings (.idea/) and assistant tooling (.claude/, CLAUDE.md) are removed and absolute paths of the home directory are replaced (the audio folder by <audio-dir>, any other
+#   2. Sanitizing: editor settings (.idea/) are removed and absolute paths of the home directory are replaced (the audio folder by <audio-dir>, any other
 #      by `~`).
 #   3. LICENSE: kept from the previous snapshot (or copied from $HEARTLIB_DIR/LICENSE the first time), because the source branch does not carry it.
 #   4. Checks, any of which aborts without committing: no text or binary file may contain the user name, the home directory, the git identity (name,
@@ -92,8 +92,6 @@ git -C "$core" archive HEAD | tar -x -C "$work/third_party/musicgen-core"
 
 # 2. sanitizing
 rm -rf "$work/.idea"
-# Assistant tooling (Claude Code commands/skills and its guidance file) stays on the source branch only, also inside the vendored core.
-find "$work" \( -name .claude -type d -o -name CLAUDE.md -type f \) -not -path "$work/.git/*" -prune -exec rm -rf {} +
 find "$work" -name __pycache__ -type d -not -path "$work/.git/*" -exec rm -rf {} + 2>/dev/null || true
 find "$work" -name "*.pyc" -type f -not -path "$work/.git/*" -delete
 home_escaped=$(printf '%s' "$HOME" | sed 's/[.[\*^$/]/\\&/g')

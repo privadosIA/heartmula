@@ -34,6 +34,7 @@ public sealed record SongResponse(
     string? AudioUrl,
     WebhookStatus? Webhook)
 {
+    /// <summary>Builds the response for a job from its snapshot; <c>AudioUrl</c> is set only once the job has succeeded.</summary>
     public static SongResponse From(JobView v) => new(
         v.Id, v.State, v.Request.Tags, v.Request.Lyrics, v.Request.DurationMs, v.Request.Seed, v.Request.CfgScale, v.Request.Temperature, v.Request.TopK, v.Request.CallbackUrl,
         v.CreatedAt, v.StartedAt, v.EndedAt, v.Progress, v.Error, v.AudioDurationMs,

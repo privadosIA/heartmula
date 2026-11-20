@@ -5,8 +5,10 @@ using MusicGen.Core;
 
 namespace HeartMuLa.Server.Api;
 
+/// <summary>The service's own HTTP API: <c>/songs</c> endpoints and <c>/health</c>.</summary>
 public static class SongEndpoints
 {
+    /// <summary>Maps <c>POST /songs</c>, <c>GET /songs/{id}</c>, <c>GET /songs/{id}/audio</c>, <c>DELETE /songs/{id}</c> and <c>GET /health</c>.</summary>
     public static void MapSongEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/songs", CreateSong)

@@ -13,6 +13,7 @@ namespace HeartMuLa.Pipeline;
 /// </summary>
 public interface ITextTokenizer
 {
+    /// <summary>Encodes <paramref name="text"/> into token ids.</summary>
     IReadOnlyList<long> Encode(string text);
 }
 
@@ -25,12 +26,14 @@ public sealed class JsonIdsTokenizer : ITextTokenizer
 {
     private readonly Dictionary<string, long[]> table;
 
+    /// <summary>Loads the table of precomputed ids from the JSON file at <paramref name="jsonPath"/>.</summary>
     public JsonIdsTokenizer(string jsonPath)
     {
         table = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, long[]>>(File.ReadAllText(jsonPath))
                 ?? new Dictionary<string, long[]>();
     }
 
+    /// <summary>Returns the precomputed ids of <paramref name="text"/>; throws <see cref="KeyNotFoundException"/> if there are none.</summary>
     public IReadOnlyList<long> Encode(string text)
     {
         if (table.TryGetValue(text, out var ids)) return ids;

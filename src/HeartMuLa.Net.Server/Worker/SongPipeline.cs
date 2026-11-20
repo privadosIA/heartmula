@@ -22,6 +22,7 @@ public sealed class SongPipeline : IWorkerSteps
     private HeartMuLaTokenizer? tokenizer;
     private MusicGenerationPipeline? pipeline;
 
+    /// <summary>Creates the pipeline for the given settings; nothing is loaded until <see cref="LoadModel"/> is called.</summary>
     public SongPipeline(WorkerSettings settings)
     {
         this.settings = settings;
@@ -29,6 +30,7 @@ public sealed class SongPipeline : IWorkerSteps
         codecDevice = new torch.Device(settings.CodecDevice);
     }
 
+    /// <summary>True once the model has been loaded and not yet disposed.</summary>
     public bool IsLoaded => model is not null;
 
     /// <summary>True when the model and the codec share a CUDA device: they do not fit together, so (like the CLI) the weights go before the decode and come back for the next song.</summary>
@@ -87,6 +89,7 @@ public sealed class SongPipeline : IWorkerSteps
         return (int)(samples * 1000 / HeartMuLa.Codec.DetokenizePlan.SampleRate);
     }
 
+    /// <summary>Releases the model and the tokenizer.</summary>
     public void Dispose()
     {
         model?.Dispose();

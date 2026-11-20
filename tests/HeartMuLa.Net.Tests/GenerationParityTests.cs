@@ -37,7 +37,7 @@ public sealed class GenerationParityTests
         return (pipe, prompt);
     }
 
-    private Tensor Generate(MusicGenerationPipeline pipe, PromptInputs prompt, int seed, int frames)
+    private static Tensor Generate(MusicGenerationPipeline pipe, PromptInputs prompt, int seed, int frames)
     {
         Rng.Seed(seed);
         return pipe.Generate(prompt, maxAudioLengthMs: (frames - 1) * 80, temperature: 1.0, topk: TopK, cfgScale: Cfg);

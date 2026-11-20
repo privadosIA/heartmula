@@ -21,6 +21,7 @@ public static class WorkerProtocol
 {
     /// <summary>The argument that makes the service executable act as a worker; the mode and the WAV path follow it.</summary>
     public const string Argument = "--worker";
+    /// <summary>The two worker modes: <c>song</c> makes the whole song, <c>codec</c> only decodes frames.</summary>
     public const string SongMode = "song", CodecMode = "codec";
 
     /// <summary>Exit codes of a worker: the song is written; the song could not be made (the cause is the last line of standard error); cancelled.</summary>
@@ -30,11 +31,14 @@ public static class WorkerProtocol
 
     private sealed record ProgressLine(JobStage Stage, int Current, int Total);
 
+    /// <summary>Serialises a request as the JSON line sent to the worker.</summary>
     public static string EncodeRequest(WorkerRequest request) => JsonSerializer.Serialize(request, Json);
 
+    /// <summary>Reads the request line a worker receives; throws <see cref="JsonException"/> when it is empty or invalid.</summary>
     public static WorkerRequest DecodeRequest(string line) =>
         JsonSerializer.Deserialize<WorkerRequest>(line, Json) ?? throw new JsonException("the request line is empty");
 
+    /// <summary>Serialises a progress step as the JSON line a worker writes to standard output.</summary>
     public static string EncodeProgress(JobStage stage, int current, int total) => JsonSerializer.Serialize(new ProgressLine(stage, current, total), Json);
 
     /// <summary>Reads a progress line; false for anything else (a stray line from a native library, say), which the caller ignores.</summary>

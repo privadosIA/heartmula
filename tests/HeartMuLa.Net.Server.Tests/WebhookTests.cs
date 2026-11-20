@@ -32,7 +32,7 @@ public sealed class WebhookTests : IAsyncDisposable
 
     private static JsonElement Parse(string s) => JsonDocument.Parse(s).RootElement.Clone();
 
-    private async Task<string> Post(HttpClient c, object body)
+    private static async Task<string> Post(HttpClient c, object body)
     {
         var r = await c.PostAsJsonAsync("/songs", body);
         Assert.Equal(HttpStatusCode.Accepted, r.StatusCode);

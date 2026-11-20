@@ -23,17 +23,24 @@ public sealed record LlamaArgs(
     double RopeBase,
     double ScaleFactor)
 {
+    /// <summary>Dimension of each attention head: <c>EmbedDim / NumHeads</c>.</summary>
     public int HeadDim => EmbedDim / NumHeads;
 }
 
+/// <summary>The Llama configurations used by HeartMuLa.</summary>
 public static class Flavors
 {
     // Copied 1:1 from modeling_heartmula.py
+    /// <summary>The <c>llama-3B</c> flavor: 28 layers, 24 heads (8 KV heads), embedding dimension 3072.</summary>
     public static readonly LlamaArgs Llama3B = new(128_256, 28, 24, 8, 3072, 8192, 8192, 1e-5, 500_000, 32);
+    /// <summary>The <c>llama-300M</c> flavor: 3 layers, 8 heads (4 KV heads), embedding dimension 3072.</summary>
     public static readonly LlamaArgs Llama300M = new(128_256, 3, 8, 4, 3072, 2048, 8192, 1e-5, 500_000, 32);
+    /// <summary>The <c>llama-7B</c> flavor: 32 layers, 32 heads (8 KV heads), embedding dimension 4096.</summary>
     public static readonly LlamaArgs Llama7B = new(128_256, 32, 32, 8, 4096, 8192, 14336, 1e-5, 500_000, 32);
+    /// <summary>The <c>llama-400M</c> flavor: 4 layers, 8 heads (4 KV heads), embedding dimension 3072.</summary>
     public static readonly LlamaArgs Llama400M = new(128_256, 4, 8, 4, 3072, 2048, 8192, 1e-5, 500_000, 32);
 
+    /// <summary>Returns the flavor with the given name (<c>llama-3B</c>, <c>llama-300M</c>, <c>llama-7B</c> or <c>llama-400M</c>); throws <see cref="ArgumentException"/> otherwise.</summary>
     public static LlamaArgs Get(string name) => name switch
     {
         "llama-3B" => Llama3B,
@@ -54,6 +61,7 @@ public sealed class Attention : Module<Tensor, Tensor, Tensor?, Tensor>
     // KV cache: [b, n_kv, max_seq_len, head_dim]. It is not part of the state_dict.
     private Tensor? kCache, vCache;
 
+    /// <summary>Builds the attention layer for the hyperparameters <paramref name="a"/>; the KV cache is allocated later by <see cref="SetupCaches"/>.</summary>
     public Attention(LlamaArgs a) : base(nameof(Attention))
     {
         numHeads = a.NumHeads;
@@ -68,8 +76,10 @@ public sealed class Attention : Module<Tensor, Tensor, Tensor?, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>True when the KV caches are allocated.</summary>
     public bool CachesEnabled => kCache is not null;
 
+    /// <summary>Allocates the KV caches <c>[batchSize, kv_heads, maxSeqLen, head_dim]</c> in <paramref name="dtype"/> on <paramref name="device"/>, replacing any previous ones.</summary>
     public void SetupCaches(int batchSize, int maxSeqLen, ScalarType dtype, Device device)
     {
         ResetCaches();
@@ -78,6 +88,7 @@ public sealed class Attention : Module<Tensor, Tensor, Tensor?, Tensor>
         vCache = torch.zeros(new long[] { batchSize, numKvHeads, maxSeqLen, headDim }, dtype: dtype, device: device);
     }
 
+    /// <summary>Zeroes the KV caches in place (does nothing if they are not allocated).</summary>
     public void ResetCaches()
     {
         kCache?.zero_();
@@ -141,6 +152,7 @@ public sealed class FeedForward : Module<Tensor, Tensor>
 {
     private readonly Linear w1, w2, w3;
 
+    /// <summary>Builds the layer from <paramref name="dim"/> to <paramref name="hidden"/> and back.</summary>
     public FeedForward(int dim, int hidden) : base(nameof(FeedForward))
     {
         w1 = Linear(dim, hidden, hasBias: false);
@@ -149,6 +161,7 @@ public sealed class FeedForward : Module<Tensor, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>Applies <c>w2(silu(w1(x)) * w3(x))</c> to <c>[b, s, dim]</c>.</summary>
     public override Tensor forward(Tensor x)
     {
         using var scope = NewDisposeScope();
@@ -156,12 +169,14 @@ public sealed class FeedForward : Module<Tensor, Tensor>
     }
 }
 
+/// <summary>A decoder layer: pre-norm self-attention and pre-norm feed-forward, each with a residual connection.</summary>
 public sealed class TransformerLayer : Module<Tensor, Tensor, Tensor?, Tensor>
 {
     private readonly Attention attn;
     private readonly FeedForward mlp;
     private readonly RmsNorm sa_norm, mlp_norm;
 
+    /// <summary>Builds the layer for the hyperparameters <paramref name="a"/>.</summary>
     public TransformerLayer(LlamaArgs a) : base(nameof(TransformerLayer))
     {
         attn = new Attention(a);
@@ -171,8 +186,10 @@ public sealed class TransformerLayer : Module<Tensor, Tensor, Tensor?, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>The layer's attention module.</summary>
     public Attention Attn => attn;
 
+    /// <summary>Applies attention and feed-forward to <c>[b, s, embed_dim]</c> at positions <paramref name="inputPos"/> under <paramref name="mask"/>.</summary>
     public override Tensor forward(Tensor x, Tensor inputPos, Tensor? mask)
     {
         using var scope = NewDisposeScope();
@@ -190,9 +207,12 @@ public sealed class TransformerDecoder : Module<Tensor, Tensor, Tensor?, Tensor>
 {
     private readonly ModuleList<TransformerLayer> layers;
     private readonly RmsNorm norm;
+    /// <summary>Hyperparameters the decoder was built with.</summary>
     public LlamaArgs Args { get; }
+    /// <summary>Maximum sequence length (the override if one was given, otherwise that of <see cref="Args"/>).</summary>
     public int MaxSeqLen { get; }
 
+    /// <summary>Builds the decoder for <paramref name="a"/>, with <paramref name="maxSeqLenOverride"/> in place of <c>a.MaxSeqLen</c> when given.</summary>
     public TransformerDecoder(LlamaArgs a, int? maxSeqLenOverride = null) : base(nameof(TransformerDecoder))
     {
         Args = a;
@@ -203,23 +223,28 @@ public sealed class TransformerDecoder : Module<Tensor, Tensor, Tensor?, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>True when the KV caches are allocated.</summary>
     public bool CachesEnabled => layers.Count > 0 && layers[0].Attn.CachesEnabled;
 
+    /// <summary>Allocates the KV caches of every layer for batches up to <paramref name="batchSize"/> (<paramref name="maxSeqLen"/> positions, <see cref="MaxSeqLen"/> when null).</summary>
     public void SetupCaches(int batchSize, ScalarType dtype, Device device, int? maxSeqLen = null)
     {
         foreach (var l in layers) l.Attn.SetupCaches(batchSize, maxSeqLen ?? MaxSeqLen, dtype, device);
     }
 
+    /// <summary>Zeroes the KV caches of every layer.</summary>
     public void ResetCaches()
     {
         foreach (var l in layers) l.Attn.ResetCaches();
     }
 
+    /// <summary>Disposes the KV caches of every layer.</summary>
     public void FreeCaches()
     {
         foreach (var l in layers) l.Attn.FreeCaches();
     }
 
+    /// <summary>Runs the embedding <c>[b, s, embed_dim]</c> through every layer and the final normalization, at positions <paramref name="inputPos"/> under <paramref name="mask"/>.</summary>
     public override Tensor forward(Tensor h, Tensor inputPos, Tensor? mask)
     {
         using var scope = NewDisposeScope();

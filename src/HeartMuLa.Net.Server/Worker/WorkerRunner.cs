@@ -10,6 +10,7 @@ public delegate (string Program, IReadOnlyList<string> Arguments) WorkerCommand(
 /// <summary>The song process ended without making the song; the message is what the job's <c>error</c> will say.</summary>
 public sealed class SongProcessException : Exception
 {
+    /// <summary>Creates the exception with the message the job's <c>error</c> will carry.</summary>
     public SongProcessException(string message) : base(message) { }
 }
 
@@ -79,7 +80,8 @@ public static class WorkerRunner
                     try { progress(p.Stage, p.Current, p.Total); }
                     catch (Exception) { /* a cancelled job refuses progress; the kill is already on its way */ }
                 }
-            });
+                // No token on purpose: cancelling kills the process, which closes the stream and ends this loop.
+            }, CancellationToken.None);
             var stderr = Task.Run(() =>
             {
                 string? line;
@@ -88,10 +90,11 @@ public static class WorkerRunner
                     if (line.Length == 0) continue;
                     lock (tail) { tail.Enqueue(line); if (tail.Count > StderrLines) tail.Dequeue(); }
                 }
-            });
+            }, CancellationToken.None);
 
             process.WaitForExit();
-            Task.WaitAll(stdout, stderr);
+            // Both readers end when the process does (a cancel kills it), so there is nothing to cancel here.
+            Task.WaitAll(new[] { stdout, stderr }, CancellationToken.None);
 
             if (ct.IsCancellationRequested)
             {

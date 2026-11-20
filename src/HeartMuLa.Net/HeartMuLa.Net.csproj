@@ -10,7 +10,13 @@
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <!-- Allows running on machines that only have a newer runtime (e.g. .NET 10). -->
     <RollForward>Major</RollForward>
+    <!-- The XML comments feed the DocFX API reference (docs/) and the editor's tooltips; CS1591 reports a public member without one. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HeartMuLa.Net.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Managed API; the native backend comes from Directory.Build.props -->

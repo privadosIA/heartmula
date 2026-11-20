@@ -1,0 +1,3 @@
+# CA1861 (constant arrays as arguments) is a hot-path concern; in test code a literal array per call costs nothing and reads better.
+[*.cs]
+dotnet_diagnostic.CA1861.severity = none

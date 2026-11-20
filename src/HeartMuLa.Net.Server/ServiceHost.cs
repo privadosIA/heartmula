@@ -9,6 +9,7 @@ using Microsoft.OpenApi.Models;
 
 namespace HeartMuLa.Server;
 
+/// <summary>Builds the web application: registers the stores, the generator for the configured isolation mode, the background services and Swagger, and maps the endpoints.</summary>
 public static class ServiceHost
 {
     /// <summary>

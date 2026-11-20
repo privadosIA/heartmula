@@ -12,6 +12,7 @@ public sealed class HeartMuLaTokenizer : ITextTokenizer, IDisposable
     private readonly Tokenizer tokenizer;
     private readonly object gate = new(); // the native API does not document whether it is thread-safe
 
+    /// <summary>Loads the tokenizer from <paramref name="tokenizerJsonPath"/>; throws <see cref="FileNotFoundException"/> if the file does not exist.</summary>
     public HeartMuLaTokenizer(string tokenizerJsonPath)
     {
         if (!File.Exists(tokenizerJsonPath))
@@ -19,6 +20,7 @@ public sealed class HeartMuLaTokenizer : ITextTokenizer, IDisposable
         tokenizer = new Tokenizer(tokenizerJsonPath);
     }
 
+    /// <summary>Encodes <paramref name="text"/> into token ids (with BOS, without EOS).</summary>
     public IReadOnlyList<long> Encode(string text)
     {
         uint[] ids;
@@ -26,5 +28,6 @@ public sealed class HeartMuLaTokenizer : ITextTokenizer, IDisposable
         return ids.Select(i => (long)i).ToArray();
     }
 
+    /// <summary>Releases the native tokenizer.</summary>
     public void Dispose() => tokenizer.Dispose();
 }

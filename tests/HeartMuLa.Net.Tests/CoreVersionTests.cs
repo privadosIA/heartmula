@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace HeartMuLa.Tests;
 
 /// <summary>The core and this repository must resolve the same TorchSharp (managed API and native package).</summary>
-public class CoreVersionTests
+public partial class CoreVersionTests
 {
     [Fact]
     public void BothDirectoryBuildProps_CarryTheSameTorchSharpVersion()
@@ -33,9 +33,12 @@ public class CoreVersionTests
         Assert.Equal(Config(typeof(CoreVersionTests).Assembly), Config(typeof(HeartMuLa.Codec.CodecWeights).Assembly));
     }
 
+    [GeneratedRegex("<TorchSharpVersion>([^<]+)</TorchSharpVersion>")]
+    private static partial Regex TorchSharpVersion();
+
     private static string Version(string props)
     {
-        var m = Regex.Match(File.ReadAllText(props), @"<TorchSharpVersion>([^<]+)</TorchSharpVersion>");
+        var m = TorchSharpVersion().Match(File.ReadAllText(props));
         Assert.True(m.Success, $"no TorchSharpVersion in {props}");
         return m.Groups[1].Value;
     }

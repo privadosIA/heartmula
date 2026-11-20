@@ -20,8 +20,11 @@ public interface IFlowEstimator
 /// </summary>
 public sealed record FlowEstimatorConfig(int Heads = 24, int HeadDim = 64, int InChannels = 1024, int OutChannels = 256, int Layers = 24, int Layers2 = 6)
 {
+    /// <summary>Width of stage 1: <c>Heads · HeadDim</c>.</summary>
     public int Inner => Heads * HeadDim;
+    /// <summary>Width of stage 2: twice <see cref="Inner"/>.</summary>
     public int Inner2 => Inner * 2;
+    /// <summary>The HeartCodec-oss configuration.</summary>
     public static FlowEstimatorConfig Default { get; } = new();
 }
 
@@ -42,8 +45,10 @@ public sealed class LlamaTransformer : Module, IFlowEstimator
     private readonly FlowAdaLayerNormSingle adaln_single;
     private readonly FlowAdaLayerNormSingle adaln_single_2;
 
+    /// <summary>Configuration the estimator was built with.</summary>
     public FlowEstimatorConfig Config { get; }
 
+    /// <summary>Builds the estimator from <paramref name="config"/> (the HeartCodec-oss default when null).</summary>
     public LlamaTransformer(FlowEstimatorConfig? config = null) : base(nameof(LlamaTransformer))
     {
         Config = config ?? FlowEstimatorConfig.Default;
@@ -62,6 +67,7 @@ public sealed class LlamaTransformer : Module, IFlowEstimator
         RegisterComponents();
     }
 
+    /// <summary>Predicts the velocity <c>[B, T, out_channels]</c> from the features <c>[B, T, in_channels]</c> and the flow time <c>[B]</c>.</summary>
     public Tensor Forward(Tensor hiddenStates, Tensor timestep)
     {
         using var scope = NewDisposeScope();

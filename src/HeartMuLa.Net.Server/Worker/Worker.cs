@@ -10,9 +10,13 @@ namespace HeartMuLa.Server.Worker;
 /// <summary>The model-touching steps a worker runs (implemented by <see cref="SongPipeline"/>; a fake in tests).</summary>
 public interface IWorkerSteps : IDisposable
 {
+    /// <summary>Reads the model weights and the tokenizer (throws on failure).</summary>
     void LoadModel();
+    /// <summary>Generates the codec frames <c>[8, T]</c> for a request, reporting progress.</summary>
     Tensor GenerateFrames(SongRequest request, Action<JobStage, int, int> progress);
+    /// <summary>Reads the frames saved at <paramref name="path"/> (the file a <c>codec</c> worker is given).</summary>
     Tensor LoadFrames(string path);
+    /// <summary>Decodes the frames with the codec into a WAV at <paramref name="wavPath"/> and returns its length in milliseconds.</summary>
     int DecodeFrames(Tensor frames, string wavPath, Action<JobStage, int, int> progress);
 }
 
@@ -103,8 +107,8 @@ public static class Worker
             try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
-    /// <summary>The real entry: standard output is captured for the protocol and <c>Console.Out</c> is pointed at standard error, because the pipeline prints human text.</summary>
-    public static int Main(string[] args)
+    /// <summary>The real entry of a worker process (called from <c>Program.cs</c> when started with <c>--worker</c>): standard output is captured for the protocol and <c>Console.Out</c> is pointed at standard error, because the pipeline prints human text.</summary>
+    public static int Execute(string[] args)
     {
         var utf8 = new UTF8Encoding(false);
         var protocolOut = new StreamWriter(Console.OpenStandardOutput(), utf8) { AutoFlush = true };

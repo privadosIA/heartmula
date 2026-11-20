@@ -74,6 +74,7 @@ public class HealthTests
         using var client = factory.CreateClient();
         await client.PostAsJsonAsync("/songs", new { tags = "a", lyrics = "b" });
         await Eventually(() => Json(client.GetStringAsync("/health").Result).GetProperty("busy").GetBoolean());
+        Assert.True(Json(await client.GetStringAsync("/health")).GetProperty("busy").GetBoolean());
         release.Set();
     }
 
@@ -85,6 +86,19 @@ public class HealthTests
         var gpus = HeartMuLa.Server.Worker.NvidiaSmiGpuProbe.Parse(output.Replace("\\n", "\n"));
         Assert.Equal(count, gpus.Count);
         Assert.Equal((lastName, free, total), (gpus[^1].Name, gpus[^1].FreeMb, gpus[^1].TotalMb));
+    }
+
+    [Fact]
+    public void Asking_for_a_cuda_device_never_throws_whether_or_not_nvidia_smi_is_installed()
+    {
+        // nvidia-smi is looked up at fixed install locations: a machine without it (a CI runner) simply has no GPUs.
+        var probe = new HeartMuLa.Server.Worker.NvidiaSmiGpuProbe();
+
+        var gpu = probe.Read("cuda:0");
+
+        Assert.True(gpu is null || !string.IsNullOrEmpty(gpu.Name));
+        Assert.Equal(probe.DeviceCount() > 0, gpu is not null);
+        Assert.Null(probe.Read("cuda:99"));
     }
 
     [Fact]
@@ -105,6 +119,7 @@ public class HealthTests
         var post = await client.PostAsJsonAsync("/songs", new { tags = "a", lyrics = "b" });
         var id = Json(await post.Content.ReadAsStringAsync()).GetProperty("id").GetString();
         await Eventually(() => Json(client.GetStringAsync("/health").Result).TryGetProperty("runningJob", out var r) && r.GetString() == id);
+        Assert.Equal(id, Json(await client.GetStringAsync("/health")).GetProperty("runningJob").GetString());
         release.Set();
     }
 }

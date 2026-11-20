@@ -176,7 +176,7 @@ public class RealModelServiceTests : IClassFixture<RealServiceFixture>
     private readonly RealServiceFixture f;
     public RealModelServiceTests(RealServiceFixture f) => this.f = f;
 
-    private object Song(string? lyrics = null, int ms = RealServiceFixture.Ms) =>
+    private static object Song(string? lyrics = null, int ms = RealServiceFixture.Ms) =>
         new { tags = RealServiceFixture.Tags, lyrics = lyrics ?? RealServiceFixture.Lyrics, durationMs = ms, seed = RealServiceFixture.Seed };
 
     [RequiresRealModel]

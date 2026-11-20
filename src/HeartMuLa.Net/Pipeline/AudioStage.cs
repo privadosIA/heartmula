@@ -9,6 +9,7 @@ namespace HeartMuLa.Pipeline;
 /// <summary>Options of <c>generate</c> that turn the frames into a WAV: <c>--wav</c>, <c>--wav-format</c>, <c>--codec-device</c> and <c>--codec-tf32</c>.</summary>
 public sealed record AudioOptions(string WavPath, WavFormat Format, string? CodecDevice, bool CodecTf32)
 {
+    /// <summary>Accepted values of <c>--wav-format</c>.</summary>
     public static readonly string[] Formats = { "pcm16", "float32" };
 
     /// <summary>
@@ -45,8 +46,10 @@ public sealed record AudioOptions(string WavPath, WavFormat Format, string? Code
     }
 }
 
+/// <summary>Audio stage of generation: releases the HeartMuLa model and decodes the frames to a WAV file with HeartCodec.</summary>
 public static class AudioStage
 {
+    /// <summary>Name of the codec's subfolder inside the checkpoint directory.</summary>
     public const string CodecFolder = "HeartCodec-oss";
 
     /// <summary>

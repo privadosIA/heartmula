@@ -6,7 +6,18 @@ using HeartMuLa.Server.Webhook;
 
 namespace HeartMuLa.Server.Worker;
 
-public enum CancelOutcome { NotFound, Cancelling, Cancelled, Removed }
+/// <summary>What <see cref="SongService.CancelOrRemove"/> did with a job.</summary>
+public enum CancelOutcome
+{
+    /// <summary>There is no job with that id.</summary>
+    NotFound,
+    /// <summary>The job is running; it has been signalled and the worker will end it.</summary>
+    Cancelling,
+    /// <summary>The job was queued and is now cancelled.</summary>
+    Cancelled,
+    /// <summary>The job had finished; it and its stored result were removed.</summary>
+    Removed,
+}
 
 /// <summary>What the endpoints use: submit, look up, cancel / remove. Owns the queue the worker reads.</summary>
 public sealed class SongService
@@ -19,14 +30,19 @@ public sealed class SongService
     private readonly TimeProvider time;
     private readonly object gate = new();   // makes "store the finished job" and "forget the job" exclude each other
 
+    /// <summary>Creates the service over the job store, the result store, the webhook sink, the settings and the clock.</summary>
     public SongService(JobStore store, ResultStore results, IJobEndedSink ended, ServiceOptions options, TimeProvider time)
     {
         this.store = store; this.results = results; this.ended = ended; this.options = options; this.time = time;
     }
 
+    /// <summary>The reading side of the queue, for the generation worker.</summary>
     public ChannelReader<Job> Reader => queue.Reader;
+    /// <summary>The store of jobs.</summary>
     public JobStore Jobs => store;
+    /// <summary>The store of results (sidecar files and WAVs) on disk.</summary>
     public ResultStore Results => results;
+    /// <summary>The clock used for job timestamps.</summary>
     public TimeProvider Time => time;
 
     /// <summary>Creates the job and queues it. Null when the queue is full.</summary>
@@ -96,5 +112,6 @@ public sealed class SongService
         ended.JobEnded(job);
     }
 
+    /// <summary>Completes the queue: no more jobs can be queued and the reader finishes once it has read the ones left.</summary>
     public void Complete() => queue.Writer.TryComplete();
 }

@@ -26,7 +26,7 @@ public sealed class FakeReceiver : IAsyncDisposable
         builder.Logging.ClearProviders();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         app = builder.Build();
-        app.Map("/{**path}", async (HttpContext ctx) =>
+        app.Run(async ctx =>
         {
             using var reader = new StreamReader(ctx.Request.Body);
             var body = await reader.ReadToEndAsync();

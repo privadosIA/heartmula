@@ -8,6 +8,7 @@ namespace HeartMuLa.Codec;
 /// </summary>
 public static class HeartCodecRope
 {
+    /// <summary>Creates the rotary embedding for attention heads of dimension <paramref name="headDim"/>.</summary>
     public static RotaryEmbedding Create(int headDim) =>
         new(RopeLayout.AdjacentPairs, RopeFrequencies.Plain(10000), RopeTable.InputDtypePerCall, headDim);
 }

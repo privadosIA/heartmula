@@ -102,7 +102,7 @@ public class FlowSolverTests
         using var mu = Rand(9, 1, 3, MuDim);
         using var incontext = Rand(10, 1, 3, C);
         using var _ = FlowMatching.Solve(stub, noise, incontext, 0, mu, 1.25, 10);
-        Assert.True(DitTestKit.MaxAbsDiff(DitTestKit.Doubles(stub.Inputs[0][0, .., ..C]), DitTestKit.Doubles(noise[0])) == 0);
+        Assert.Equal(0.0, DitTestKit.MaxAbsDiff(DitTestKit.Doubles(stub.Inputs[0][0, .., ..C]), DitTestKit.Doubles(noise[0])));
     }
 
     [Fact]

@@ -2,10 +2,24 @@ using HeartMuLa.Server.Jobs;
 
 namespace HeartMuLa.Server.Worker;
 
-public enum ModelStatus { Loading, Ready, Failed }
+/// <summary>Whether the model is still being read, ready for songs, or failed to load.</summary>
+public enum ModelStatus
+{
+    /// <summary>The model is still being loaded.</summary>
+    Loading,
+    /// <summary>The model is loaded and songs can be generated.</summary>
+    Ready,
+    /// <summary>Loading failed; <see cref="ISongGenerator.LoadError"/> says why.</summary>
+    Failed,
+}
 
+/// <summary>The outcome of a generated song.</summary>
+/// <param name="AudioDurationMs">Length of the written WAV in milliseconds.</param>
 public sealed record GeneratedSong(int AudioDurationMs);
 
+/// <summary>The devices a song is made on.</summary>
+/// <param name="Model">Device of the language model, e.g. <c>cuda:0</c> or <c>cpu</c>.</param>
+/// <param name="Codec">Device of the audio codec.</param>
 public sealed record DeviceInfo(string Model, string Codec);
 
 /// <summary>
@@ -14,8 +28,11 @@ public sealed record DeviceInfo(string Model, string Codec);
 /// </summary>
 public interface ISongGenerator
 {
+    /// <summary>Whether the model is loading, ready or failed.</summary>
     ModelStatus Status { get; }
+    /// <summary>Why loading failed; null when it has not.</summary>
     string? LoadError { get; }
+    /// <summary>The devices of the model and the codec.</summary>
     DeviceInfo Devices { get; }
 
     /// <summary>True when the model is loaded for each song by a worker process (nothing is resident), so health says <c>on-demand</c> instead of <c>ready</c>.</summary>

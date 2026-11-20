@@ -1,0 +1,27 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../src",
+          "files": [ "HeartMuLa.Net/HeartMuLa.Net.csproj", "HeartMuLa.Net.Server/HeartMuLa.Net.Server.csproj" ]
+        }
+      ],
+      "dest": "api",
+      "properties": { "TorchBackend": "cpu" }
+    }
+  ],
+  "build": {
+    "content": [
+      { "files": [ "api/**.yml", "api/index.md" ] },
+      { "files": [ "articles/**.md", "articles/**/toc.yml", "toc.yml", "index.md" ] }
+    ],
+    "output": "_site",
+    "globalMetadata": {
+      "_appTitle": "HeartMuLa.Net",
+      "_appFooter": "HeartMuLa.Net API reference, generated from the XML documentation comments.",
+      "_enableSearch": true
+    },
+    "template": [ "default", "modern" ]
+  }
+}

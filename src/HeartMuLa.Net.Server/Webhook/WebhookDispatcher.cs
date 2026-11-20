@@ -20,8 +20,11 @@ public sealed record WebhookPayload(string Id, JobState State, long Seed, int? D
 /// </summary>
 public sealed class WebhookDispatcher : BackgroundService, IJobEndedSink
 {
+    /// <summary>Name of the request header carrying the event name.</summary>
     public const string EventHeader = "X-HeartMuLa-Event";
+    /// <summary>Name of the request header carrying the HMAC signature (sent only when <c>Webhook:Secret</c> is set).</summary>
     public const string SignatureHeader = "X-HeartMuLa-Signature";
+    /// <summary>Value of the event header: the event sent when a job has ended.</summary>
     public const string EventName = "song.finished";
     private const int MaxConcurrentDeliveries = 8;
 
@@ -37,6 +40,11 @@ public sealed class WebhookDispatcher : BackgroundService, IJobEndedSink
     private readonly HttpClient http;
     private readonly ILogger<WebhookDispatcher> log;
 
+    /// <summary>Creates the dispatcher; redirects are never followed.</summary>
+    /// <param name="store">Index of the jobs, used to resume pending deliveries and to skip deleted jobs.</param>
+    /// <param name="results">Result store where the delivery outcome is saved.</param>
+    /// <param name="options">Service options; the <c>Webhook</c> section is used.</param>
+    /// <param name="log">Logger.</param>
     public WebhookDispatcher(JobStore store, ResultStore results, ServiceOptions options, ILogger<WebhookDispatcher> log)
     {
         this.store = store; this.results = results; this.options = options.Webhook; this.log = log;
@@ -44,11 +52,15 @@ public sealed class WebhookDispatcher : BackgroundService, IJobEndedSink
         http = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false }) { Timeout = Timeout.InfiniteTimeSpan };
     }
 
+    /// <summary>Queues a notification when the job has a <c>callbackUrl</c>; returns at once.</summary>
+    /// <param name="job">The job that ended.</param>
     public void JobEnded(Job job)
     {
         if (job.Request.CallbackUrl is not null) queue.Writer.TryWrite(job);
     }
 
+    /// <summary>Resumes deliveries left pending by the previous run, then delivers queued notifications in the background, at most 8 at a time, until the service stops.</summary>
+    /// <param name="stopping">Signalled when the service is shutting down.</param>
     protected override async Task ExecuteAsync(CancellationToken stopping)
     {
         // Resume what the previous run left pending (jobs restored from disk by Maintenance, which starts first).
@@ -131,6 +143,7 @@ public sealed class WebhookDispatcher : BackgroundService, IJobEndedSink
     public static string Sign(string secret, byte[] body) =>
         "sha256=" + Convert.ToHexString(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), body)).ToLowerInvariant();
 
+    /// <summary>Releases the HTTP client.</summary>
     public override void Dispose()
     {
         http.Dispose();

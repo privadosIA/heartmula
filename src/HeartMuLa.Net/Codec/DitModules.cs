@@ -17,6 +17,7 @@ public sealed class FlowProjectLayer : Module<Tensor, Tensor>
     private readonly Linear ffn_2;
     private readonly int kernel;
 
+    /// <summary>Builds the layer: a convolution with the given <paramref name="kernel"/> from <paramref name="inChannels"/> to <paramref name="outChannels"/>, then a Linear of <paramref name="outChannels"/>.</summary>
     public FlowProjectLayer(int inChannels, int outChannels, int kernel) : base(nameof(FlowProjectLayer))
     {
         this.kernel = kernel;
@@ -25,6 +26,7 @@ public sealed class FlowProjectLayer : Module<Tensor, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>Applies the convolution, the <c>k^−0.5</c> scaling and the Linear to <c>[B, T, C]</c>.</summary>
     public override Tensor forward(Tensor x)
     {
         using var scope = NewDisposeScope();
@@ -39,6 +41,7 @@ public sealed class FlowTimestepEmbedding : Module<Tensor, Tensor>
     private readonly Linear linear_1;
     private readonly Linear linear_2;
 
+    /// <summary>Builds the two Linear layers: <paramref name="inChannels"/> → <paramref name="dim"/> → <paramref name="dim"/>.</summary>
     public FlowTimestepEmbedding(int inChannels, int dim) : base(nameof(FlowTimestepEmbedding))
     {
         linear_1 = Linear(inChannels, dim);
@@ -46,6 +49,7 @@ public sealed class FlowTimestepEmbedding : Module<Tensor, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>Maps features <c>[B, inChannels]</c> to <c>[B, dim]</c>.</summary>
     public override Tensor forward(Tensor x)
     {
         using var scope = NewDisposeScope();
@@ -56,9 +60,11 @@ public sealed class FlowTimestepEmbedding : Module<Tensor, Tensor>
 /// <summary>Sinusoidal embedding of the flow time <c>t</c> (512 features: cos then sin of <c>t·1000·exp(−ln 10000·i/256)</c>) and its MLP.</summary>
 public sealed class FlowTimestepEmbedder : Module<Tensor, Tensor>
 {
+    /// <summary>Number of sinusoidal features of a timestep.</summary>
     public const int FlowTSize = 512;
     private readonly FlowTimestepEmbedding timestep_embedder;
 
+    /// <summary>Builds the embedder whose MLP outputs <paramref name="dim"/> features.</summary>
     public FlowTimestepEmbedder(int dim) : base(nameof(FlowTimestepEmbedder))
     {
         timestep_embedder = new FlowTimestepEmbedding(FlowTSize, dim);
@@ -75,6 +81,7 @@ public sealed class FlowTimestepEmbedder : Module<Tensor, Tensor>
         return cat(new[] { cos(args), sin(args) }, dim: -1).MoveToOuterDisposeScope();
     }
 
+    /// <summary>Embeds the timesteps <c>[B]</c> into <c>[B, dim]</c>.</summary>
     public override Tensor forward(Tensor timesteps)
     {
         using var scope = NewDisposeScope();
@@ -88,6 +95,7 @@ public sealed class FlowAdaLayerNormSingle : Module
     private readonly FlowTimestepEmbedder emb;
     private readonly Linear linear;
 
+    /// <summary>Builds the module for hidden size <paramref name="dim"/>.</summary>
     public FlowAdaLayerNormSingle(int dim) : base(nameof(FlowAdaLayerNormSingle))
     {
         emb = new FlowTimestepEmbedder(dim);
@@ -134,6 +142,7 @@ public sealed class FlowTransformerBlock : Module
     private readonly FlowMlp mlp;
     private readonly Parameter scale_shift_table;
 
+    /// <summary>Builds a block of width <paramref name="dim"/> with <paramref name="heads"/> attention heads of size <paramref name="headDim"/>.</summary>
     public FlowTransformerBlock(int dim, int heads, int headDim) : base(nameof(FlowTransformerBlock))
     {
         attn_norm = new FlowRmsNorm(dim);

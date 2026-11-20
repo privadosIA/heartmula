@@ -17,7 +17,7 @@ public sealed class LongDecodeParityTests
     // (in-context frames exactly equal). Limits with about 4x margin in max_abs.
     // GPU with cuDNN TF32 off (the default of the decode), measured: 4070 window 0 1.6e-5 / 113.2 dB, window 1 4.5e-5 / 108.3 dB; 5060 Ti 1.3e-5 / 115.6 dB, 3.3e-5 / 111.2 dB.
     // Limits max_abs 1.5e-4 and 100 dB (about 3x and 8 dB of margin).
-    private double LatentCos => 0.999999;
+    private static double LatentCos => 0.999999;
     private double LatentMaxAbs => _fx.Device.type == DeviceType.CPU ? 2.5e-5 : 1.5e-4;
     private double LatentSnr => _fx.Device.type == DeviceType.CPU ? 110 : 100;
 

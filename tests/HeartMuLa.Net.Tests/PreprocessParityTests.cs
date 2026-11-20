@@ -98,7 +98,10 @@ public class PreprocessParityTests
         {
             foreach (var culture in new[] { "es-ES", "en-US", "tr-TR", "lt-LT", "" })
             {
-                CultureInfo.CurrentCulture = new CultureInfo(culture);
+                CultureInfo named;
+                try { named = new CultureInfo(culture); }
+                catch (CultureNotFoundException) { continue; }     // a runner with invariant globalization (no ICU) has no named cultures
+                CultureInfo.CurrentCulture = named;
                 var tok = new CapturingTokenizer();
 
                 Pipeline(tok).Preprocess(tags, "la", 1.5);

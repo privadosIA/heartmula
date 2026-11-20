@@ -22,12 +22,15 @@ public sealed record VocoderConfig(
     int NumBands = 1,
     bool Causal = true)
 {
+    /// <summary>Upsampling factor of each decoder block (default 5, 4, 4, 4, 3).</summary>
     public int[] Factors => UpFactors ?? new[] { 5, 4, 4, 4, 3 };
+    /// <summary>Kernel size of each upsampling convolution (default 10, 8, 8, 8, 6).</summary>
     public int[] Kernels => UpKernels ?? new[] { 10, 8, 8, 8, 6 };
 
     /// <summary>Audio samples per latent frame: the product of the upsampling factors times the final duplication.</summary>
     public int SamplesPerFrame => Factors.Aggregate(1, (a, b) => a * b) * NumSamples;
 
+    /// <summary>The HeartCodec-oss configuration.</summary>
     public static VocoderConfig Default { get; } = new();
 }
 
@@ -39,6 +42,7 @@ public sealed class ResidualUnit : Module<Tensor, Tensor>
     private readonly PReLULayer activation1;
     private readonly PReLULayer activation2;
 
+    /// <summary>Builds the unit for <paramref name="channels"/> channels: first convolution with the given <paramref name="dilation"/> and <paramref name="resKernel"/>, second convolution of kernel 1.</summary>
     public ResidualUnit(int channels, int dilation, int resKernel, bool causal) : base(nameof(ResidualUnit))
     {
         conv1 = new Conv1dLayer(channels, channels, resKernel, dilation, causal);
@@ -48,6 +52,7 @@ public sealed class ResidualUnit : Module<Tensor, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>Applies both convolutions with their activations and adds the input.</summary>
     public override Tensor forward(Tensor x)
     {
         using var scope = NewDisposeScope();
@@ -62,12 +67,14 @@ public sealed class UpsampleLayer : Module<Tensor, Tensor>
 {
     private readonly ConvTranspose1dLayer layer;
 
+    /// <summary>Builds the transposed convolution from <paramref name="inChannels"/> to <paramref name="outChannels"/> with the given <paramref name="kernel"/> and <paramref name="stride"/>.</summary>
     public UpsampleLayer(int inChannels, int outChannels, int kernel, int stride) : base(nameof(UpsampleLayer))
     {
         layer = new ConvTranspose1dLayer(inChannels, outChannels, kernel, stride);
         RegisterComponents();
     }
 
+    /// <summary>Upsamples <c>[B, C, T]</c> in time by the stride.</summary>
     public override Tensor forward(Tensor x) => layer.forward(x);
 }
 
@@ -78,6 +85,7 @@ public sealed class ResDecoderBlock : Module<Tensor, Tensor>
     private readonly UpsampleLayer up_conv;
     private readonly ModuleList<ResidualUnit> convs;
 
+    /// <summary>Builds a block that upsamples by <paramref name="stride"/> from <paramref name="inChannels"/> to <paramref name="outChannels"/>, followed by residual units of kernel <paramref name="resKernel"/>.</summary>
     public ResDecoderBlock(int inChannels, int outChannels, int stride, int upKernel, int resKernel, bool causal) : base(nameof(ResDecoderBlock))
     {
         up_conv = new UpsampleLayer(inChannels, outChannels, upKernel, stride);
@@ -86,6 +94,7 @@ public sealed class ResDecoderBlock : Module<Tensor, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>Upsamples <c>[B, C, T]</c> and applies the residual units.</summary>
     public override Tensor forward(Tensor x)
     {
         using var scope = NewDisposeScope();
@@ -107,6 +116,7 @@ public sealed class PostProcessor : Module<Tensor, Tensor>
     private readonly Conv1dLayer conv;
     private readonly PReLULayer activation;
 
+    /// <summary>Builds the post-processor for <paramref name="channels"/> channels, repeating each sample <paramref name="numSamples"/> times and convolving with the given <paramref name="kernel"/>.</summary>
     public PostProcessor(int channels, int numSamples, int kernel, bool causal) : base(nameof(PostProcessor))
     {
         this.numSamples = numSamples;
@@ -115,6 +125,7 @@ public sealed class PostProcessor : Module<Tensor, Tensor>
         RegisterComponents();
     }
 
+    /// <summary>Repeats each sample in time, then applies the convolution and PReLU: <c>[B, C, T]</c> → <c>[B, C, T·numSamples]</c>.</summary>
     public override Tensor forward(Tensor x)
     {
         using var scope = NewDisposeScope();
@@ -132,8 +143,10 @@ public sealed class ScalarVocoder : Module<Tensor, Tensor>
 {
     private readonly ModuleList<Module<Tensor, Tensor>> decoder;
 
+    /// <summary>Configuration the vocoder was built with.</summary>
     public VocoderConfig Config { get; }
 
+    /// <summary>Builds the vocoder from <paramref name="config"/> (the HeartCodec-oss default when null).</summary>
     public ScalarVocoder(VocoderConfig? config = null) : base(nameof(ScalarVocoder))
     {
         Config = config ?? VocoderConfig.Default;
@@ -155,6 +168,7 @@ public sealed class ScalarVocoder : Module<Tensor, Tensor>
     /// <summary><c>round(9·x)/9</c> (<c>round_func9</c>): <c>torch.round</c> rounds to the nearest even on ties.</summary>
     public static Tensor Quantize9(Tensor x) => round(x * 9) / 9;
 
+    /// <summary>Quantizes and decodes the latents <c>[B, latent, T]</c> to audio <c>[B, T·1920]</c>.</summary>
     public Tensor Decode(Tensor latents)
     {
         using var scope = NewDisposeScope();
@@ -168,5 +182,6 @@ public sealed class ScalarVocoder : Module<Tensor, Tensor>
         return h.squeeze(1).MoveToOuterDisposeScope();
     }
 
+    /// <summary>Same as <see cref="Decode"/>.</summary>
     public override Tensor forward(Tensor x) => Decode(x);
 }

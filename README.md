@@ -271,6 +271,19 @@ tools/decode_frames.py        decode .NET frames with the Python codec (referenc
 tools/update_public_branch.sh sanitized public snapshot, vendoring the core
 ```
 
+## API reference
+
+The public API is documented with XML comments (`///`, the C# counterpart of Javadoc). They show up as tooltips in the editor and feed an HTML
+reference built with [DocFX](https://dotnet.github.io/docfx/), pinned as a local tool in `.config/dotnet-tools.json`:
+
+```bash
+dotnet tool restore
+TorchBackend=cpu dotnet docfx docs/docfx.json --serve   # builds docs/_site and serves it on http://localhost:8080
+```
+
+`docs/api` and `docs/_site` are generated and ignored by git. The home page is `docs/index.md`; the rest comes from the source, so a new public member
+needs a `<summary>` (the compiler warns with CS1591 when it is missing).
+
 ## Shared core
 
 The model-agnostic code (safetensors, strict loader, rotary embedding, norms, convolutions, window assembly, WAV writer, seeding, test helpers) lives in

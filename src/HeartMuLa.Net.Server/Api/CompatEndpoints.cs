@@ -14,9 +14,18 @@ namespace HeartMuLa.Server.Api;
 /// </summary>
 public static class CompatEndpoints
 {
+    /// <summary>Largest request body, in bytes, that <c>POST /generate</c> accepts (larger ones get 413).</summary>
     public const int MaxBodyBytes = 1_000_000;
-    private static readonly Regex HexId = new("^[0-9a-f]+$", RegexOptions.Compiled);
+    // The methods each route does not serve (they answer "not found", not 405, as the container does).
+    private static readonly string[] GenerateOtherMethods = { "GET", "PUT", "PATCH", "DELETE" };
+    private static readonly string[] HealthOtherMethods = { "POST", "PUT", "PATCH", "DELETE" };
+    private static readonly string[] JobOtherMethods = { "POST", "PUT", "PATCH" };
+    private static readonly string[] AudioOtherMethods = { "POST", "PUT", "PATCH", "DELETE" };
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+    private static readonly Regex HexId = new("^[0-9a-f]+$", RegexOptions.Compiled, RegexTimeout);
+    private static readonly Regex CommaSpaces = new(@"\s*,\s*", RegexOptions.Compiled, RegexTimeout);
 
+    /// <summary>Maps the orchestrator-compatible routes (<c>/generate</c>, <c>/jobs/{id}</c>, <c>/jobs/{id}/audio</c>), the not-found answers for other methods and paths, and a trailing-slash normalisation.</summary>
     public static void MapCompatEndpoints(this WebApplication app)
     {
         // The container accepts a trailing slash.
@@ -33,10 +42,10 @@ public static class CompatEndpoints
         app.MapDelete("/jobs/{id}", Forget).ExcludeFromDescription();
 
         // Any other method on these paths, and any other path, is "not found" (not 405) as in the container.
-        app.MapMethods("/generate", new[] { "GET", "PUT", "PATCH", "DELETE" }, NotFound).ExcludeFromDescription();
-        app.MapMethods("/health", new[] { "POST", "PUT", "PATCH", "DELETE" }, NotFound).ExcludeFromDescription();
-        app.MapMethods("/jobs/{id}", new[] { "POST", "PUT", "PATCH" }, NotFound).ExcludeFromDescription();
-        app.MapMethods("/jobs/{id}/audio", new[] { "POST", "PUT", "PATCH", "DELETE" }, NotFound).ExcludeFromDescription();
+        app.MapMethods("/generate", GenerateOtherMethods, NotFound).ExcludeFromDescription();
+        app.MapMethods("/health", HealthOtherMethods, NotFound).ExcludeFromDescription();
+        app.MapMethods("/jobs/{id}", JobOtherMethods, (string id) => NotFound()).ExcludeFromDescription();
+        app.MapMethods("/jobs/{id}/audio", AudioOtherMethods, (string id) => NotFound()).ExcludeFromDescription();
         app.MapFallback(NotFound).ExcludeFromDescription();
     }
 
@@ -75,7 +84,7 @@ public static class CompatEndpoints
         int n;
         while ((n = await request.Body.ReadAsync(chunk)) > 0)
         {
-            buffer.Write(chunk, 0, n);
+            await buffer.WriteAsync(chunk.AsMemory(0, n));
             if (buffer.Length > MaxBodyBytes) return null;
         }
         return buffer.ToArray();
@@ -109,7 +118,7 @@ public static class CompatEndpoints
             else if (tagsEl.ValueKind == JsonValueKind.String) tags = tagsEl.GetString()!;
             else return (null, "tags must be a text or a list of words");
         }
-        tags = Regex.Replace(tags.Trim().ToLowerInvariant(), @"\s*,\s*", ",").Trim(',');
+        tags = CommaSpaces.Replace(tags.Trim().ToLowerInvariant(), ",").Trim(',');
         if (tags.Length == 0) return (null, "tags must name at least one style");
 
         var values = new double[Limits.Length];

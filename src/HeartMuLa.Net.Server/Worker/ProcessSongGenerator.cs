@@ -16,6 +16,10 @@ public sealed class ProcessSongGenerator : ISongGenerator
     private readonly IGpuProbe probe;
     private readonly WorkerCommand command;
 
+    /// <summary>Creates the generator for <c>process</c> isolation.</summary>
+    /// <param name="options">The service settings.</param>
+    /// <param name="probe">Counts the CUDA devices without creating a GPU context.</param>
+    /// <param name="command">How to start the worker; null starts this executable (<see cref="WorkerRunner.CurrentExecutable"/>).</param>
     public ProcessSongGenerator(ServiceOptions options, IGpuProbe probe, WorkerCommand? command = null)
     {
         this.options = options;
@@ -23,10 +27,12 @@ public sealed class ProcessSongGenerator : ISongGenerator
         this.command = command ?? WorkerRunner.CurrentExecutable;
     }
 
+    /// <inheritdoc/>
     public bool LoadsPerSong => true;
 
     private int CudaCount => probe.DeviceCount();
 
+    /// <inheritdoc/>
     public DeviceInfo Devices
     {
         get
@@ -36,6 +42,7 @@ public sealed class ProcessSongGenerator : ISongGenerator
         }
     }
 
+    /// <inheritdoc/>
     public IReadOnlyList<string> Missing
     {
         get
@@ -48,8 +55,10 @@ public sealed class ProcessSongGenerator : ISongGenerator
 
     private IReadOnlyList<string> Problems() => options.Validate(CudaCount);
 
+    /// <summary>Ready when the settings are valid for the devices found and the checkpoint is complete, otherwise failed; it is computed on each read.</summary>
     public ModelStatus Status => Problems().Count == 0 && Missing.Count == 0 ? ModelStatus.Ready : ModelStatus.Failed;
 
+    /// <summary>The settings problems and missing checkpoint files joined into one message; null when there are none.</summary>
     public string? LoadError
     {
         get
@@ -63,6 +72,7 @@ public sealed class ProcessSongGenerator : ISongGenerator
     /// <summary>Nothing is loaded: the model belongs to the worker of each song.</summary>
     public void Load() { }
 
+    /// <summary>Makes the song in a worker process that loads the model, generates, decodes and exits; blocks until it ends.</summary>
     public GeneratedSong Generate(SongRequest request, string wavPath, Action<JobStage, int, int> progress, CancellationToken ct)
     {
         var devices = Devices;

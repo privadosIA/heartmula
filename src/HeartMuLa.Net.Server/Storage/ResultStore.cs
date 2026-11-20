@@ -21,6 +21,9 @@ public sealed class ResultStore
     private readonly TimeSpan retention;
     private readonly TimeProvider time;
 
+    /// <summary>Creates the store, resolving and creating the results directory.</summary>
+    /// <param name="options">Storage settings: results directory and retention.</param>
+    /// <param name="time">Clock used to decide what has expired.</param>
     public ResultStore(StorageOptions options, TimeProvider time)
     {
         directory = Path.GetFullPath(options.Directory);
@@ -29,8 +32,13 @@ public sealed class ResultStore
         Directory.CreateDirectory(directory);
     }
 
+    /// <summary>Full path of the results directory.</summary>
     public string DirectoryPath => directory;
+    /// <summary>Path of the finished WAV of a job.</summary>
+    /// <param name="id">The job id.</param>
     public string WavPath(string id) => Path.Combine(directory, id + ".wav");
+    /// <summary>Path of the temporary file the WAV is written to before <see cref="CommitWav(string)"/> renames it.</summary>
+    /// <param name="id">The job id.</param>
     public string WavTempPath(string id) => Path.Combine(directory, id + ".wav.tmp");
     private string SidecarPath(string id) => Path.Combine(directory, id + ".json");
 
@@ -45,6 +53,8 @@ public sealed class ResultStore
     /// <summary>Makes the finished WAV visible (rename of the temporary file).</summary>
     public void CommitWav(string id) => File.Move(WavTempPath(id), WavPath(id), overwrite: true);
 
+    /// <summary>True when the finished WAV of the job exists.</summary>
+    /// <param name="id">The job id.</param>
     public bool HasWav(string id) => File.Exists(WavPath(id));
 
     /// <summary>Deletes everything stored for a job.</summary>

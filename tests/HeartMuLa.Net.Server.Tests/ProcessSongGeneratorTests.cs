@@ -120,7 +120,8 @@ public sealed class ProcessSongGeneratorTests : IDisposable
     public void Cancelling_ends_the_whole_process_tree_within_a_second_and_leaves_no_file()
     {
         // `sleep` is a child of the shell: killing only the shell would leave it running.
-        var script = $"read req; echo '{Loading}'; printf partial > \"$2\"; sleep 60";
+        // 61 s, not 60: other test classes run `sleep 60` in parallel and IsOurSleep must only see this one.
+        var script = $"read req; echo '{Loading}'; printf partial > \"$2\"; sleep 61";
         using var cts = new CancellationTokenSource();
         var g = Make(script);
         var started = new ManualResetEventSlim();
@@ -137,7 +138,7 @@ public sealed class ProcessSongGeneratorTests : IDisposable
 
     private static bool IsOurSleep(Process p)
     {
-        try { return File.ReadAllText($"/proc/{p.Id}/cmdline").Contains("60"); } catch { return false; }
+        try { return File.ReadAllText($"/proc/{p.Id}/cmdline").Contains("61"); } catch { return false; }
     }
 
     [ShellFact]

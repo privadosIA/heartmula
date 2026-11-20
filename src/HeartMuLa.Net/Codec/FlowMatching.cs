@@ -8,11 +8,13 @@ namespace HeartMuLa.Codec;
 /// <summary>Configuration of the flow-matching decoder (<c>config.json</c> of HeartCodec-oss).</summary>
 public sealed record FlowMatchingConfig(int Dim = 512, int CodebookSize = 8192, int CodebookDim = 32, int NumQuantizers = 8, FlowEstimatorConfig? Estimator = null)
 {
+    /// <summary>The estimator configuration: <see cref="Estimator"/> if given, otherwise the default.</summary>
     public FlowEstimatorConfig EstimatorConfig => Estimator ?? FlowEstimatorConfig.Default;
 
     /// <summary>Frames per second of the latents: the codes run at 12.5 Hz and are upsampled ×2.</summary>
     public const int LatentFramesPerCodeFrame = 2;
 
+    /// <summary>The HeartCodec-oss configuration.</summary>
     public static FlowMatchingConfig Default { get; } = new();
 }
 
@@ -21,6 +23,7 @@ public sealed class VqCodebook : Module
 {
     private readonly Parameter embed;
 
+    /// <summary>Builds a codebook of <paramref name="size"/> vectors of dimension <paramref name="dim"/>.</summary>
     public VqCodebook(int size, int dim) : base(nameof(VqCodebook))
     {
         embed = new Parameter(zeros(1, size, dim), requires_grad: false);
@@ -41,12 +44,14 @@ public sealed class VqLayer : Module
 {
     private readonly VqCodebook codebook;
 
+    /// <summary>Builds a layer whose codebook has <paramref name="size"/> vectors of dimension <paramref name="dim"/>.</summary>
     public VqLayer(int size, int dim) : base(nameof(VqLayer))
     {
         codebook = new VqCodebook(size, dim);
         register_module("_codebook", codebook);                          // explicit: RegisterComponents would derive the name from the field
     }
 
+    /// <summary>Looks up the vectors of the codes: <c>[B, T]</c> → <c>[B, T, dim]</c>.</summary>
     public Tensor Lookup(Tensor codes) => codebook.Lookup(codes);
 }
 
@@ -59,8 +64,10 @@ public sealed class ResidualVq : Module
     private readonly ModuleList<VqLayer> layers;
     private readonly Linear project_out;
 
+    /// <summary>Number of RVQ layers, i.e. of code streams.</summary>
     public int NumQuantizers { get; }
 
+    /// <summary>Builds <paramref name="numQuantizers"/> layers of <paramref name="codebookSize"/> vectors of <paramref name="codebookDim"/>, and the projection to <paramref name="dim"/>.</summary>
     public ResidualVq(int dim, int codebookSize, int codebookDim, int numQuantizers) : base(nameof(ResidualVq))
     {
         NumQuantizers = numQuantizers;
@@ -98,10 +105,14 @@ public sealed class FlowMatching : Module
     private readonly Parameter zero_cond_embedding1;
     private readonly LlamaTransformer estimator;
 
+    /// <summary>Configuration the module was built with.</summary>
     public FlowMatchingConfig Config { get; }
+    /// <summary>Channels of the generated latents (the estimator's output channels).</summary>
     public int LatentDim => Config.EstimatorConfig.OutChannels;
+    /// <summary>The DiT estimator, as the solver sees it.</summary>
     public IFlowEstimator Estimator => estimator;
 
+    /// <summary>Builds the module from <paramref name="config"/> (the HeartCodec-oss default when null).</summary>
     public FlowMatching(FlowMatchingConfig? config = null) : base(nameof(FlowMatching))
     {
         Config = config ?? FlowMatchingConfig.Default;
@@ -149,8 +160,13 @@ public sealed class FlowMatching : Module
     /// classifier-free guidance. With <paramref name="incontextLength"/> &gt; 0 the first frames are taken from <paramref name="trueLatents"/> instead of generated.
     /// </summary>
     /// <param name="codes"><c>[B, Q, T]</c> int64</param>
+    /// <param name="latentLength">Number of latent frames to generate (the frames of the mask outside it are left unconditioned)</param>
+    /// <param name="incontextLength">Number of leading latent frames taken from <paramref name="trueLatents"/>; only used when <paramref name="otherSeg"/> is true</param>
+    /// <param name="guidanceScale">Classifier-free guidance scale</param>
+    /// <param name="numSteps">Number of Euler steps</param>
     /// <param name="noise"><c>[B, 2T, 256]</c>; <c>torch.randn</c> when null</param>
     /// <param name="trueLatents"><c>[B, 2T, 256]</c> in-context latents; zeros when null</param>
+    /// <param name="otherSeg">True when the segment continues a previous one, so the first <paramref name="incontextLength"/> frames are in-context</param>
     public Tensor InferenceCodes(Tensor codes, long latentLength, long incontextLength, double guidanceScale, int numSteps,
         Tensor? noise = null, Tensor? trueLatents = null, bool otherSeg = false)
     {
@@ -171,6 +187,7 @@ public sealed class FlowMatching : Module
     public Tensor Solve(Tensor x0, Tensor incontextX, long incontextLength, Tensor mu, double guidanceScale, int numSteps)
         => Solve(estimator, x0, incontextX, incontextLength, mu, guidanceScale, numSteps);
 
+    /// <summary>Static form of <c>Solve</c> that takes the estimator explicitly, so a stub can be injected.</summary>
     public static Tensor Solve(IFlowEstimator estimator, Tensor x0, Tensor incontextX, long incontextLength, Tensor mu, double guidanceScale, int numSteps)
     {
         using var scope = NewDisposeScope();

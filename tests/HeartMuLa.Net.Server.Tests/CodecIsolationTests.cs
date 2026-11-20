@@ -24,7 +24,7 @@ public sealed class CodecIsolationTests : IDisposable
     }
     public void Dispose() { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
 
-    private WorkerFrameDecoder Decoder(string script) => new(Settings, (mode, wav) => ("/bin/sh", new[] { "-c", script, "stub", mode, wav }));
+    private static WorkerFrameDecoder Decoder(string script) => new(Settings, (mode, wav) => ("/bin/sh", new[] { "-c", script, "stub", mode, wav }));
     private static SongRequest Req() => new("piano", "la", 5000, 7, 3.0, null, 1.0, 50);
     private static Tensor Frames() => arange(0, 8 * 5, dtype: ScalarType.Int64).reshape(8, 5);
     private static string FramesFile(string wav) => WorkerFrameDecoder.FramesPath(wav);

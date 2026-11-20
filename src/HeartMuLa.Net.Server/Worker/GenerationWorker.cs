@@ -14,11 +14,13 @@ public sealed class GenerationWorker : BackgroundService
     private readonly ILogger<GenerationWorker> log;
     private volatile Job? current;
 
+    /// <summary>Creates the worker over the song service (queue and stores) and the generator that makes the songs.</summary>
     public GenerationWorker(SongService songs, ISongGenerator generator, ILogger<GenerationWorker> log)
     {
         this.songs = songs; this.generator = generator; this.log = log;
     }
 
+    /// <summary>Starts the job loop on a dedicated long-running thread and returns its task.</summary>
     protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
         Task.Factory.StartNew(() => Run(stoppingToken), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 

@@ -13,7 +13,7 @@ namespace HeartMuLa.Tests;
 /// Strict loading of the vocoder's decoder. With small synthetic checkpoints that replicate the structure of HeartCodec-oss (weight_norm pairs
 /// only in the layers that have them, and tensors of the encoder and the flow matching that are not the decoder's), and with the real checkpoint.
 /// </summary>
-public sealed class CodecWeightsTests : IDisposable
+public sealed partial class CodecWeightsTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("codec-weights-").FullName;
     private readonly ITestOutputHelper _out;
@@ -23,7 +23,8 @@ public sealed class CodecWeightsTests : IDisposable
 
     // Layers with weight_norm in HeartCodec: the input, the upsampling and the two convolutions of each residual unit, and the final one. The post-processor
     // convolution and the PReLUs do not have it.
-    private static readonly Regex WeightNormed = new(@"^decoder\.(0|7)\.weight$|^decoder\.[1-5]\.up_conv\.layer\.weight$|^decoder\.[1-5]\.convs\.\d\.conv[12]\.weight$");
+    [GeneratedRegex(@"^decoder\.(0|7)\.weight$|^decoder\.[1-5]\.up_conv\.layer\.weight$|^decoder\.[1-5]\.convs\.\d\.conv[12]\.weight$")]
+    private static partial Regex WeightNormed();
 
     private sealed record Written(Dictionary<string, Tensor> Expected, int RawDecoderTensors, int Foreign);
 
@@ -38,7 +39,7 @@ public sealed class CodecWeightsTests : IDisposable
         using var _ = no_grad();
         foreach (var (name, p) in source.named_parameters())
         {
-            if (WeightNormed.IsMatch(name))
+            if (WeightNormed().IsMatch(name))
             {
                 var layer = name[..^".weight".Length];
                 var v = randn(p.shape, generator: g);

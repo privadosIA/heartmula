@@ -11,13 +11,20 @@ namespace HeartMuLa.Model;
 /// <summary>Equivalent of HeartMuLaConfig (config.json inside HeartMuLa-oss-3B/).</summary>
 public sealed class HeartMuLaConfig
 {
+    /// <summary>Name of the backbone's Llama flavor (see <see cref="Flavors"/>).</summary>
     public string BackboneFlavor { get; init; } = "llama-3B";
+    /// <summary>Name of the codebook decoder's Llama flavor (see <see cref="Flavors"/>).</summary>
     public string DecoderFlavor { get; init; } = "llama-300M";
+    /// <summary>Size of the text vocabulary.</summary>
     public int TextVocabSize { get; init; } = 128256;
+    /// <summary>Size of each audio codebook's vocabulary (the audio codes plus special ids).</summary>
     public int AudioVocabSize { get; init; } = 8197;
+    /// <summary>Number of audio codebooks per frame.</summary>
     public int AudioNumCodebooks { get; init; } = 8;
+    /// <summary>Dimension of the MuQ reference-audio embedding.</summary>
     public int MuqDim { get; init; } = 512;
 
+    /// <summary>Reads the configuration from the <c>config.json</c> at <paramref name="path"/>; missing keys keep their defaults.</summary>
     public static HeartMuLaConfig FromFile(string path)
     {
         var j = JsonDocument.Parse(File.ReadAllText(path)).RootElement;
@@ -45,6 +52,7 @@ public sealed class HeartMuLaConfig
 /// </summary>
 public sealed class HeartMuLaModel : Module
 {
+    /// <summary>Configuration the model was built with.</summary>
     public HeartMuLaConfig Config { get; }
 
     private readonly TransformerDecoder backbone;
@@ -60,9 +68,11 @@ public sealed class HeartMuLaModel : Module
     private Tensor? backboneCausalMask; // [max_seq, max_seq] bool
     private Tensor? decoderCausalMask;  // [num_codebooks, num_codebooks] bool
 
+    /// <summary>Builds the model with the flavors named in <paramref name="config"/>.</summary>
     public HeartMuLaModel(HeartMuLaConfig config)
         : this(config, Flavors.Get(config.BackboneFlavor), Flavors.Get(config.DecoderFlavor)) { }
 
+    /// <summary>Builds the model with explicit hyperparameters for the backbone (<paramref name="bArgs"/>) and the codebook decoder (<paramref name="dArgs"/>).</summary>
     public HeartMuLaModel(HeartMuLaConfig config, LlamaArgs bArgs, LlamaArgs dArgs) : base(nameof(HeartMuLaModel))
     {
         Config = config;
@@ -94,7 +104,9 @@ public sealed class HeartMuLaModel : Module
         finally { torch.set_default_dtype(previous); }
     }
 
+    /// <summary>The backbone transformer, which processes the frame sequence.</summary>
     public TransformerDecoder Backbone => backbone;
+    /// <summary>The codebook decoder transformer, which predicts codebooks 1 to K−1 of a frame.</summary>
     public TransformerDecoder Decoder => decoder;
 
     // ---------------------------------------------------------------- loading
@@ -129,6 +141,7 @@ public sealed class HeartMuLaModel : Module
 
     // ---------------------------------------------------------------- caches
 
+    /// <summary>Allocates the KV caches of the backbone and the decoder for batches up to <paramref name="maxBatchSize"/> and builds the causal masks, using the dtype and device of the parameters.</summary>
     public void SetupCaches(int maxBatchSize)
     {
         var p = parameters().First();
@@ -144,6 +157,7 @@ public sealed class HeartMuLaModel : Module
         decoderCausalMask = torch.tril(torch.ones(Config.AudioNumCodebooks, Config.AudioNumCodebooks, dtype: ScalarType.Bool, device: device));
     }
 
+    /// <summary>True when the KV caches of both transformers are allocated.</summary>
     public bool CachesEnabled => backbone.CachesEnabled && decoder.CachesEnabled;
 
     /// <summary>Frees the KV caches and the causal masks (they live outside the parameters, so disposing the model alone would leave them on the device).</summary>
@@ -155,6 +169,7 @@ public sealed class HeartMuLaModel : Module
         decoderCausalMask?.Dispose(); decoderCausalMask = null;
     }
 
+    /// <summary>Zeroes the KV caches of the backbone and the decoder.</summary>
     public void ResetCaches()
     {
         backbone.ResetCaches();
@@ -199,17 +214,15 @@ public sealed class HeartMuLaModel : Module
     // ---------------------------------------------------------------- generation
 
     /// <summary>
-    /// Port of generate_frame: returns [B, num_codebooks] with the tokens of the next frame (80 ms).
+    /// First half of generate_frame: embeddings → backbone → codebook 0 logits.
+    /// Split out so it can be compared with the golden run without sampling (sampling is random).
     /// </summary>
     /// <param name="tokens">[B, S, K+1] long</param>
     /// <param name="tokensMask">[B, S, K+1] bool</param>
     /// <param name="inputPos">[B, S] long</param>
+    /// <param name="cfgScale">Classifier-free guidance scale; the unconditional text embedding is used on the second half of the batch when above 1</param>
     /// <param name="continuousSegments">[B, muq_dim] or null (MuQ embedding of the reference audio; always zeros in oss)</param>
     /// <param name="starts">per-batch index where continuousSegments is injected</param>
-    /// <summary>
-    /// First half of generate_frame: embeddings → backbone → codebook 0 logits.
-    /// Split out so it can be compared with the golden run without sampling (sampling is random).
-    /// </summary>
     /// <returns>(last_h [B, D], c0_logits [B, audio_vocab])</returns>
     public (Tensor lastH, Tensor c0Logits) BackboneLogits(
         Tensor tokens, Tensor tokensMask, Tensor inputPos, double cfgScale,
@@ -256,6 +269,17 @@ public sealed class HeartMuLaModel : Module
         return (lastH.MoveToOuterDisposeScope(), c0Logits.MoveToOuterDisposeScope());
     }
 
+    /// <summary>
+    /// Port of generate_frame: returns [B, num_codebooks] with the tokens of the next frame (80 ms).
+    /// </summary>
+    /// <param name="tokens">[B, S, K+1] long</param>
+    /// <param name="tokensMask">[B, S, K+1] bool</param>
+    /// <param name="inputPos">[B, S] long</param>
+    /// <param name="temperature">Sampling temperature</param>
+    /// <param name="topk">Number of candidates kept by the top-k filter</param>
+    /// <param name="cfgScale">Classifier-free guidance scale</param>
+    /// <param name="continuousSegments">[B, muq_dim] or null (MuQ embedding of the reference audio; always zeros in oss)</param>
+    /// <param name="starts">per-batch index where continuousSegments is injected</param>
     public Tensor GenerateFrame(
         Tensor tokens, Tensor tokensMask, Tensor inputPos,
         double temperature, int topk, double cfgScale,
@@ -323,6 +347,7 @@ public sealed class HeartMuLaModel : Module
     }
 }
 
+/// <summary>Sampling of the next audio tokens from logits: classifier-free guidance, temperature and top-k.</summary>
 public static class Sampling
 {
     /// <summary>
