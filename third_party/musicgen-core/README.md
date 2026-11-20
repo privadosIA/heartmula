@@ -50,6 +50,11 @@ Consumers reference `$(MusicGenCoreDir)/src/MusicGen.Core/MusicGen.Core.csproj`;
 folder `../musicgen-core` and can be overridden with `-p:MusicGenCoreDir=...`. Core and consumer must use the same
 `TorchSharpVersion` in their `Directory.Build.props`.
 
+## CI
+
+`.github/workflows/ci.yml` builds and tests `MusicGen.Core.sln` with the CPU backend. A consumer's CI checks this repository out next to its own
+(see HeartMuLa.Net's README, "Shared core and CI") and builds against the exact commit it checked out.
+
 ## Related repositories
 
 Depends on TorchSharp only. Used by `heartmula`, `diffrhythm2` and `lion-clap` and, through them, by `mediaOrquestator`.
@@ -69,3 +74,7 @@ The links are to the private copies of these repositories. The third-party tools
 ## License
 
 Apache 2.0 (see [LICENSE](LICENSE)).
+
+## Maintenance
+
+Maintained by one person in their free time: issues and pull requests are welcome, with no promised response time. See [CONTRIBUTING.md](CONTRIBUTING.md) and, for vulnerabilities, [SECURITY.md](SECURITY.md).

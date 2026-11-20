@@ -14,8 +14,8 @@
 # What a snapshot is:
 #   1. `git archive <source>` extracted over a clean checkout of `public` (an orphan branch is created the first time), plus the core under
 #      `third_party/musicgen-core` (see above). Every check below runs over both.
-#   2. Sanitizing: editor settings (.idea/) are removed and absolute paths of the home directory are replaced (the audio folder by <audio-dir>, any other
-#      by `~`).
+#   2. Sanitizing: editor settings (.idea/) and assistant tooling (.claude/, CLAUDE.md) and CI workflows (.github/, .gitea/) are removed, absolute paths of the home directory are replaced (the audio folder by <audio-dir>, any other
+#      by `~`) and links to the internal Git server in Markdown files become links to the `github` remote's organisation.
 #   3. LICENSE: kept from the previous snapshot (or copied from $HEARTLIB_DIR/LICENSE the first time), because the source branch does not carry it.
 #   4. Checks, any of which aborts without committing: no text or binary file may contain the user name, the home directory, the git identity (name,
 #      email and its local part), the host of `origin` or anything listed in $PUBLIC_FORBIDDEN (colon-separated); no private key, GitHub / Hugging Face /
@@ -92,6 +92,9 @@ git -C "$core" archive HEAD | tar -x -C "$work/third_party/musicgen-core"
 
 # 2. sanitizing
 rm -rf "$work/.idea"
+# Assistant tooling (Claude Code commands/skills and its guidance file) and the CI workflows of the internal Git server (.gitea) stay on the source branch
+# only, also inside the vendored core.
+find "$work" \( \( -name .claude -o -name .github -o -name .gitea \) -type d -o -name CLAUDE.md -type f \) -not -path "$work/.git/*" -prune -exec rm -rf {} +
 find "$work" -name __pycache__ -type d -not -path "$work/.git/*" -exec rm -rf {} + 2>/dev/null || true
 find "$work" -name "*.pyc" -type f -not -path "$work/.git/*" -delete
 home_escaped=$(printf '%s' "$HOME" | sed 's/[.[\*^$/]/\\&/g')
@@ -101,6 +104,21 @@ while IFS= read -r -d '' f; do
     echo "sanitized paths in ${f#"$work"/}"
   fi
 done < <(find "$work" -path "$work/.git" -prune -o -type f -print0)
+
+# Links to the internal Git server (the READMEs list the sibling repositories) point to the same repositories under the organisation of the `github`
+# remote, because the internal host must not appear in what is published.
+origin_url=$(git remote get-url origin 2>/dev/null || true)
+github_url=$(git remote get-url github 2>/dev/null || true)
+if [[ -n "$origin_url" && "$github_url" =~ github\.com[:/]([^/]+)/ ]]; then
+  org=${BASH_REMATCH[1]}
+  internal_host=${origin_url#*://}; internal_host=${internal_host#*@}; internal_host=${internal_host%%[:/]*}
+  while IFS= read -r -d '' f; do
+    if grep -qF "$internal_host" "$f"; then
+      sed -i -e "s|https\?://$internal_host/[^/]*/|https://github.com/$org/|g" -e "s|/src/branch/main/|/blob/main/|g" "$f"
+      echo "rewrote internal links in ${f#"$work"/}"
+    fi
+  done < <(find "$work" -path "$work/.git" -prune -o -type f -name '*.md' -print0)
+fi
 
 # 3. license
 if [[ ! -f "$work/LICENSE" ]]; then
