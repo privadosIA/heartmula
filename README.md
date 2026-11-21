@@ -1,5 +1,7 @@
 # HeartMuLa.Net
 
+> Part of [mediaOrquestator](https://orquestator.xuxo.net/): a song made with this port, and examples of every other engine, are on its public page (es/en).
+
 C# port (.NET 8 + TorchSharp) of [heartlib](https://github.com/HeartMuLa/heartlib), the HeartMuLa music generation model.
 
 Status: backbone, decoder and generation loop (LLM + codebook decoder + sampling) validated against Python with automated tests (C1–C4, see `openspec/`); real tokenizer and Python-compatible text preparation (C5); HeartCodec vocoder, flow matching and windowed decode (C6–C8). `generate --wav` goes from text to a WAV file end to end.
